@@ -1,6 +1,32 @@
-import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { beforeEach, describe, expect, it, test, vi } from 'vitest'
+import value from '../src/fixed.js'
 
+import * as helperLib from '../src/helper.js'
+
+import '../src/side-effects.js'
 import '../src/my-button.js'
+
+vi.mock('../src/helper.js', () => {
+  return {
+    helper: () => 'Mock value',
+  }
+})
+
+const mock = true
+const expectText = mock ? 'Mock' : 'Real'
+
+if (mock) {
+  // const x = vi.mock
+
+  // // hack: this isn't hoisted since `vi.mock` is string matched
+  vi.doMock('../src/helper.js', () => {
+    return {
+      helper: () => 'Mock value doMock',
+    }
+  })
+}
+
+await import('../src/my-button.js')
 
 describe('Button with increment', async () => {
   function getInsideButton(): HTMLElement | null | undefined {
@@ -9,6 +35,25 @@ describe('Button with increment', async () => {
 
   beforeEach(() => {
     document.body.innerHTML = '<my-button name="World"></my-button>'
+  })
+
+  test('spyOn works on ESM', async () => {
+    vi.spyOn(helperLib, 'helper').mockReturnValue('mocked')
+    expect(helperLib.helper()).toBe('mocked')
+    vi.mocked(helperLib.helper).mockRestore()
+  })
+
+  test('direct mock', async () => {
+    expect(helperLib.helper()).toBe('Mock value')
+  })
+
+  it('should have value', () => {
+    expect(value).toBe(1)
+  })
+
+  it('should something with helper function', async () => {
+    const x = await import('../src/helper.js')
+    expect(x.helper()).toContain(`${expectText} value`)
   })
 
   it('should increment the count on each click', () => {
@@ -29,5 +74,10 @@ describe('Button with increment', async () => {
     getInsideButton()?.click()
 
     expect(spyClick).toHaveBeenCalled()
+  })
+
+  it('should have a helper value', () => {
+    const el = document.body.querySelector('my-button')?.shadowRoot?.getElementById('helper')
+    expect(el?.textContent).toContain(`${expectText} value`)
   })
 })

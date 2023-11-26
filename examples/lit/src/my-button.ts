@@ -1,5 +1,11 @@
 import { LitElement, css, html } from 'lit'
 import { customElement, property } from 'lit/decorators.js'
+import { vi } from 'vitest'
+import { helper } from './helper.js'
+
+vi.mock('butt', () => {
+
+})
 
 /**
  * An example button.
@@ -35,6 +41,7 @@ export class MyButton extends LitElement {
       <button @click=${this._onClick} role="button">
         Click Count: ${this.count}
       </button>
+      <div id="helper">${helper()}</div>
       <slot></slot>
     `
   }
