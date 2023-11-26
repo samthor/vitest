@@ -131,7 +131,7 @@ ws.addEventListener('open', async () => {
     providedContext: await client.rpc.getProvidedContext(),
   }
   // @ts-expect-error mocking vitest apis
-  globalThis.__vitest_mocker__ = new VitestBrowserClientMocker()
+  globalThis.__vitest_mocker__ = new VitestBrowserClientMocker(config!)
 
   const paths = getQueryPaths()
 

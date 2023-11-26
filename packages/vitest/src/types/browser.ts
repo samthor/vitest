@@ -70,12 +70,20 @@ export interface BrowserConfigOptions {
 
   /**
    * Update ESM imports so they can be spied/stubbed with vi.spyOn.
-   * Enabled by default when running in browser.
    *
-   * @default true
+   * @default false
    * @experimental
    */
   slowHijackESM?: boolean
+
+  /**
+   * Replace all ESM import statements so that modules can be spied/stubbed/mocked.
+   * This is a different approach than {@link slowHijackESM} and should not be enabled simultaneously.
+   *
+   * @default false
+   * @experimental
+   */
+  replaceImportMock?: boolean
 
   /**
    * Isolate test environment after each test
