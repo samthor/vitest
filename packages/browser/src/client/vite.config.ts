@@ -33,7 +33,7 @@ export default defineConfig({
         if (fs.existsSync(browser))
           fs.rmSync(browser, { recursive: true })
 
-        fs.mkdirSync(browser)
+        fs.mkdirSync(browser, { recursive: true })
         fs.mkdirSync(resolve(browser, 'assets'))
 
         files.forEach((f) => {

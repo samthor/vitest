@@ -6,6 +6,7 @@ import sirv from 'sirv'
 import type { Plugin } from 'vite'
 import type { WorkspaceProject } from 'vitest/node'
 import { injectVitestModule } from './esmInjector'
+import { wrapImports } from './wrapImports'
 
 export default (project: WorkspaceProject, base = '/'): Plugin[] => {
   const pkgRoot = resolve(fileURLToPath(import.meta.url), '../..')
@@ -96,6 +97,22 @@ export default (project: WorkspaceProject, base = '/'): Plugin[] => {
         if (!hijackESM)
           return
         return injectVitestModule(source, id, this.parse)
+      },
+    },
+  ]
+}
+
+// TODO: awkward way to put plugins at end of server.ts
+export function after(project: WorkspaceProject): Plugin[] {
+  return [
+    {
+      name: 'vitest:browser:wrap-imports',
+      enforce: 'post',
+      transform(source, id) {
+        const replaceImportMock = project.config.browser.replaceImportMock ?? false
+        if (!replaceImportMock)
+          return
+        return wrapImports(source, id, this.parse)
       },
     },
   ]

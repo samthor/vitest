@@ -63,6 +63,9 @@
         }
       }
 
+      // load all code before mocker arrives
+      window.__vitest_mocker__ = { import: (loader) => loader() }
+
       window.__vi_export_all__ = exportAll
 
       // TODO: allow easier rewriting of import.meta.env

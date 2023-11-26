@@ -49,17 +49,15 @@ const regexpHoistable = /^[ \t]*\b(vi|vitest)\s*\.\s*(mock|unmock|hoisted)\(/m
 const regexpAssignedHoisted = /=[ \t]*(\bawait|)[ \t]*\b(vi|vitest)\s*\.\s*hoisted\(/
 const hashbangRE = /^#!.*\n/
 
-export function hoistMocks(code: string, id: string, parse: PluginContext['parse'], importIdentifier?: string) {
+export function hoistMocks(code: string, id: string, parse: PluginContext['parse'], always?: boolean) {
   // if we're using a custom identifier then apply it to all imports (this is browser
   // mode) as this plugin is used to wire up mocks created even outside this file
-  // if (!importIdentifier) {
-  const hasMocks = regexpHoistable.test(code) || regexpAssignedHoisted.test(code)
+  if (!always) {
+    const hasMocks = regexpHoistable.test(code) || regexpAssignedHoisted.test(code)
 
-  // eslint-disable-next-line no-console
-  console.info('!!! hoistMocks', { id, running: hasMocks })
-  if (!hasMocks)
-    return
-  // }
+    if (!hasMocks)
+      return
+  }
 
   const s = new MagicString(code)
 
@@ -75,9 +73,10 @@ export function hoistMocks(code: string, id: string, parse: PluginContext['parse
   // custom importers are told how to load the actual module (this gets properly
   // resolved later) as well as its id / the current href to do mock matching
   // (imports may happen via resolved IDs, but users expect to match imports as code)
-  const buildImport = importIdentifier
-    ? (source: string) => `await ${importIdentifier}(() => import(${JSON.stringify(source)}), ${JSON.stringify(source)}, import.meta.url)`
-    : (source: string) => `await import(${JSON.stringify(source)})`
+  // const buildImport = importIdentifier
+  //   ? (source: string) => `await ${importIdentifier}(() => import(${JSON.stringify(source)}), ${JSON.stringify(source)}, import.meta.url)`
+  //   : (source: string) => `await import(${JSON.stringify(source)})`
+  const buildImport = (source: string) => `await import(${JSON.stringify(source)})`
 
   const hoistIndex = code.match(hashbangRE)?.[0].length ?? 0
 

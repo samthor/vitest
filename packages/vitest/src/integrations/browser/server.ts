@@ -59,11 +59,8 @@ export async function createBrowserServer(project: WorkspaceProject, configFile:
           }
         },
       },
-      MocksPlugin({
-        importIdentifier: project.config.browser.replaceImportMock
-          ? '__vitest_mocker__.import'
-          : undefined,
-      }),
+      MocksPlugin({ always: true }),
+      (await import('@vitest/browser')).after(project),
     ],
   })
 
