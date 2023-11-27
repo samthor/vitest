@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it, test, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, test, vi } from 'vitest'
 import value from '../src/fixed.js'
 
 import * as helperLib from '../src/helper.js'
@@ -16,9 +16,6 @@ const mock = true
 const expectText = mock ? 'Mock' : 'Real'
 
 if (mock) {
-  // const x = vi.mock
-
-  // // hack: this isn't hoisted since `vi.mock` is string matched
   vi.doMock('../src/helper.js', () => {
     return {
       helper: () => 'Mock value doMock',
@@ -33,8 +30,20 @@ describe('Button with increment', async () => {
     return document.body.querySelector('my-button')?.shadowRoot?.querySelector('button')
   }
 
+  test('delay', async () => {
+    await new Promise(r => setTimeout(r, 1_000))
+  })
+
+  let node: HTMLElement
+
   beforeEach(() => {
-    document.body.innerHTML = '<my-button name="World"></my-button>'
+    node = document.createElement('div')
+    node.innerHTML = '<my-button name="World"></my-button>'
+    document.body.append(node)
+  })
+
+  afterEach(() => {
+    node.remove()
   })
 
   test('spyOn works on ESM', async () => {

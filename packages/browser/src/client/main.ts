@@ -18,6 +18,7 @@ export const ENTRY_URL = `${
 
 let config: ResolvedConfig | undefined
 let runner: VitestRunner | undefined
+let mocker: VitestBrowserClientMocker | undefined
 const browserHashMap = new Map<string, [test: boolean, timestamp: string]>()
 
 const url = new URL(location.href)
@@ -93,6 +94,7 @@ async function reportUnexpectedError(rpc: typeof client.rpc, type: string, error
 
 ws.addEventListener('open', async () => {
   await loadConfig()
+  mocker = new VitestBrowserClientMocker(config!)
 
   let safeRpc: typeof client.rpc
   try {
@@ -131,7 +133,7 @@ ws.addEventListener('open', async () => {
     providedContext: await client.rpc.getProvidedContext(),
   }
   // @ts-expect-error mocking vitest apis
-  globalThis.__vitest_mocker__ = new VitestBrowserClientMocker(config!)
+  globalThis.__vitest_mocker__ = mocker
 
   const paths = getQueryPaths()
 
@@ -207,8 +209,14 @@ async function runTests(paths: string[], config: ResolvedConfig) {
 
     runningTests = true
 
-    for (const file of files)
-      await startTests([file], runner)
+    for (const file of files) {
+      try {
+        await startTests([file], runner)
+      }
+      finally {
+        mocker!.resetAfterFile()
+      }
+    }
   }
   finally {
     runningTests = false

@@ -14,22 +14,46 @@ export function withTrailingSlash(path: string): string {
 }
 
 export class VitestBrowserClientMocker {
-  private mocks = new Map<string, () => any>()
+  private mockLoaders = new Map<string, () => any>()
+  private cachedImports = new Map<string, Promise<any>>()
 
   constructor(
     private config: ResolvedConfig,
   ) {}
 
+  /**
+   * Browser tests don't run in parallel, and can't really with immutable modules. This clears all
+   * mocks after each run.
+   */
+  public resetAfterFile() {
+    this.mockLoaders.clear()
+    this.cachedImports.clear()
+  }
+
+  public resetModules() {
+    this.cachedImports.clear()
+  }
+
+  /**
+   * The magic method that imports are rewritten to. This resolves the path,
+   */
   public async import(loader: () => Promise<any>, id: string, importer: string) {
     const { resolved } = this.resolvePath(id, importer)
 
-    const factory = this.mocks.get(resolved)
+    const prev = this.cachedImports.get(resolved)
+    if (prev !== undefined)
+      return prev
 
-    if (factory)
-      return factory()
+    const task = (async () => {
+      const factory = this.mockLoaders.get(resolved)
+      if (factory)
+        return factory()
 
-    const all = await loader()
-    return { ...all }
+      const all = await loader()
+      return { [Symbol.toStringTag]: 'Module', ...all }
+    })()
+    this.cachedImports.set(resolved, task)
+    return task
   }
 
   public importActual() {
@@ -46,48 +70,55 @@ export class VitestBrowserClientMocker {
     })
 
     const { resolved } = this.resolvePath(id, importer)
-
-    this.mocks.set(resolved, factory)
+    this.mockLoaders.set(resolved, factory)
   }
 
-  public queueUnmock(id: string, _importer: string) {
-    this.mocks.delete(id)
+  public queueUnmock(id: string, importer: string) {
+    const { resolved } = this.resolvePath(id, importer)
+    this.mockLoaders.delete(resolved)
   }
 
   private resolvePath(rawId: string, importer: string) {
+    importer = this.normalizeImporter(importer)
+
     if (isAbsolute(rawId))
-      return { resolved: rawId }
+      return { resolved: rawId, importer }
 
     if (!rawId.match(/^\.{0,2}\//)) {
       try {
-        // eslint-disable-next-line no-new
-        new URL(rawId)
+        const u = new URL(rawId)
+        if (!(u.protocol === location.protocol && u.host === location.host)) {
+        // e.g. "https://" or "node:" but not our own test domain, don't resolve further
+          return {
+            resolved: rawId,
+            importer,
+          }
+        }
+
+        rawId = u.pathname
       }
       catch (error: any) {
-        // found naked module specifier
-        return { resolved: rawId }
+        // can't construct URL, found naked module specifier
+        return { resolved: rawId, importer }
       }
     }
 
-    // __vitest_mocker__ gets http:// urls, queueMock gets paths
+    const resolved = join(dirname(importer), rawId)
+    return { resolved, importer }
+  }
+
+  private normalizeImporter(importer: string) {
+    // importers arrive as the full URL or just their local path, normalize with URL
     const u = new URL(importer, `${location.protocol}//${location.host}`)
+    importer = u.pathname + u.search
 
-    // is this on our test url? if not, bail (e.g., external import)
-    if (!(u.protocol === location.protocol && u.host === location.host))
-      return { resolved: importer }
+    if (importer.startsWith('/@fs/'))
+      importer = importer.slice(4)
 
-    importer = u.pathname
+    const root = withTrailingSlash(this.config.root)
+    if (importer.startsWith(root))
+      importer = importer.slice(root.length - 1)
 
-    // TODO: This is probably wrong; the goal is to move all URLs like "http://localhost:5173/src/whatever.js" to be their full on-disk path.
-    // Instead this puts everything not in our root there, including e.g., random deps.
-    // How do we match the 'fall-through' loads relative to the root?
-    if (importer && !importer.startsWith(withTrailingSlash(this.config.root)))
-      importer = join(this.config.root, importer)
-
-    const dir = dirname(importer)
-    const resolved = join(dir, rawId)
-    return {
-      resolved,
-    }
+    return importer
   }
 }
