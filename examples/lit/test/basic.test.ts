@@ -30,10 +30,6 @@ describe('Button with increment', async () => {
     return document.body.querySelector('my-button')?.shadowRoot?.querySelector('button')
   }
 
-  test('delay', async () => {
-    await new Promise(r => setTimeout(r, 1_000))
-  })
-
   let node: HTMLElement
 
   beforeEach(() => {
@@ -50,6 +46,8 @@ describe('Button with increment', async () => {
     vi.spyOn(helperLib, 'helper').mockReturnValue('mocked')
     expect(helperLib.helper()).toBe('mocked')
     vi.mocked(helperLib.helper).mockRestore()
+    console.info('RESTORED')
+    //    helperLib.helper()
   })
 
   test('direct mock', async () => {

@@ -103,6 +103,7 @@ ws.addEventListener('open', async () => {
     safeRpc = createSafeRpc(client, getSafeTimers)
   }
   catch (err) {
+    throw err
     location.reload()
     return
   }
@@ -183,6 +184,7 @@ async function runTests(paths: string[], config: ResolvedConfig) {
     preparedData = await prepareTestEnvironment(config)
   }
   catch (err) {
+    throw err
     location.reload()
     return
   }
@@ -211,9 +213,11 @@ async function runTests(paths: string[], config: ResolvedConfig) {
 
     for (const file of files) {
       try {
+        console.warn('! startTests GO', { file })
         await startTests([file], runner)
       }
       finally {
+        console.warn('! startTests STOP', { file })
         mocker!.resetAfterFile()
       }
     }

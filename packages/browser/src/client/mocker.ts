@@ -1,5 +1,6 @@
-import { dirname, isAbsolute, join } from 'pathe'
+import { basename, dirname, isAbsolute, join, relative } from 'pathe'
 import type { ResolvedConfig } from '../../../vitest/src/types/config'
+import { buildFakeModule } from './fakeModule'
 
 function throwNotImplemented(name: string) {
   throw new Error(`[vitest] ${name} is not implemented in browser environment yet.`)
@@ -16,6 +17,7 @@ export function withTrailingSlash(path: string): string {
 export class VitestBrowserClientMocker {
   private mockLoaders = new Map<string, () => any>()
   private cachedImports = new Map<string, Promise<any>>()
+  private importUid = 1
 
   constructor(
     private config: ResolvedConfig,
@@ -26,19 +28,27 @@ export class VitestBrowserClientMocker {
    * mocks after each run.
    */
   public resetAfterFile() {
+    console.warn('$$$ RESET ALL MOCKS')
     this.mockLoaders.clear()
     this.cachedImports.clear()
+    ++this.importUid
   }
 
   public resetModules() {
     this.cachedImports.clear()
   }
 
-  /**
-   * The magic method that imports are rewritten to. This resolves the path,
-   */
-  public async import(loader: () => Promise<any>, id: string, importer: string) {
+  public async import(loader: (uid: any) => Promise<any>, id: string, importer: string): Promise<Record<string | symbol, any>> {
     const { resolved } = this.resolvePath(id, importer)
+
+    // FIXME:
+    //  - The issue is that subordinate mods already have a ref to whatever's returned here
+    // e.g.
+    // Test file imports A, comes here. Calls the import() loader, stores ref to B.
+    // B is from a previous test invocation. It has **already run**.
+    //
+    // Solutions - magic ID on imports, new every time. Awkward to manipulate Vite/Rollup import paths.
+    //
 
     const prev = this.cachedImports.get(resolved)
     if (prev !== undefined)
@@ -46,11 +56,13 @@ export class VitestBrowserClientMocker {
 
     const task = (async () => {
       const factory = this.mockLoaders.get(resolved)
+      let contents
       if (factory)
-        return factory()
+        contents = factory()
+      else
+        contents = loader(this.importUid)
 
-      const all = await loader()
-      return { [Symbol.toStringTag]: 'Module', ...all }
+      return buildFakeModule(contents)
     })()
     this.cachedImports.set(resolved, task)
     return task
@@ -70,7 +82,9 @@ export class VitestBrowserClientMocker {
     })
 
     const { resolved } = this.resolvePath(id, importer)
+    console.warn('! TODO: queueMock - this is run on file _load_, not run', { id, importer, resolved })
     this.mockLoaders.set(resolved, factory)
+    this.cachedImports.delete(resolved)
   }
 
   public queueUnmock(id: string, importer: string) {
@@ -84,11 +98,11 @@ export class VitestBrowserClientMocker {
     if (isAbsolute(rawId))
       return { resolved: rawId, importer }
 
-    if (!rawId.match(/^\.{0,2}\//)) {
+    if (!/^\.{0,2}\//.test(rawId)) {
       try {
         const u = new URL(rawId)
         if (!(u.protocol === location.protocol && u.host === location.host)) {
-        // e.g. "https://" or "node:" but not our own test domain, don't resolve further
+          // e.g. "https://" or "node:" but not our own test domain, don't resolve further
           return {
             resolved: rawId,
             importer,
@@ -103,7 +117,13 @@ export class VitestBrowserClientMocker {
       }
     }
 
-    const resolved = join(dirname(importer), rawId)
+    let resolved = join(dirname(importer), rawId)
+
+    // remove config.project.root
+    const root = withTrailingSlash(this.config.root)
+    if (resolved.startsWith(root))
+      resolved = resolved.slice(root.length - 1)
+
     return { resolved, importer }
   }
 

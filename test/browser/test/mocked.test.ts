@@ -27,3 +27,18 @@ test('imports are still the same', async () => {
   // @ts-expect-error typescript resolution
   await expect(import(`../src/calculator`)).resolves.toBe(calculatorModule)
 })
+
+// this is from https://vitest.dev/api/vi.html#vi-spyon
+test('example', () => {
+  const cart = {
+    getApples: () => 42,
+  }
+
+  const spy = vi.spyOn(cart, 'getApples').mockReturnValue(10)
+
+  expect(cart.getApples()).toBe(10)
+  vi.restoreAllMocks()
+  expect(cart.getApples()).toBe(42)
+  spy.mockReturnValue(10)
+  expect(cart.getApples()).toBe(42)
+})

@@ -76,7 +76,7 @@ export function hoistMocks(code: string, id: string, parse: PluginContext['parse
   // const buildImport = importIdentifier
   //   ? (source: string) => `await ${importIdentifier}(() => import(${JSON.stringify(source)}), ${JSON.stringify(source)}, import.meta.url)`
   //   : (source: string) => `await import(${JSON.stringify(source)})`
-  const buildImport = (source: string) => `await import(${JSON.stringify(source)})`
+  const buildImport = (source: string) => (console.info('importing', { source }), `await import(${JSON.stringify(source)})`)
 
   const hoistIndex = code.match(hashbangRE)?.[0].length ?? 0
 

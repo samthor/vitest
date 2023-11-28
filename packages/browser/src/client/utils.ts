@@ -5,7 +5,7 @@ async function tryImport(id: string, tries = 20): Promise<any> {
   }
   catch (cause) {
     if (tries <= 0) {
-      location.reload()
+      // location.reload()
       throw new Error(`Failed to import ${id}.`, { cause })
     }
 

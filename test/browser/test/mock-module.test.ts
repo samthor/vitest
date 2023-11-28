@@ -1,11 +1,14 @@
 import { expect, test, vi } from 'vitest'
 import { calculator } from '../src/calculator'
 
+vi.hoisted(() => {
+  vi.resetModules()
+})
+
+// // TODO: this does not work IF `mocked.test.ts` exists
 vi.mock('../src/actions', () => {
   return {
-    plus: (a: number, b: number) => {
-      return a * b
-    },
+    plus: (a, b) => a * b,
   }
 })
 
