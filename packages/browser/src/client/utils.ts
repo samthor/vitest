@@ -16,7 +16,6 @@ async function tryImport(id: string, tries = 20): Promise<any> {
 
 export async function importId(id: string) {
   const name = `/@id/${id}`
-  return import(name)
   // TODO: this import _should_ always work, but sometimes it doesn't
   // this is a workaround until we can properly debug it - maybe server is not ready?
   // @ts-expect-error mocking vitest apis

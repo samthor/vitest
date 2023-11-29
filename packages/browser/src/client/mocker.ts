@@ -6,14 +6,6 @@ function throwNotImplemented(name: string) {
   throw new Error(`[vitest] ${name} is not implemented in browser environment yet.`)
 }
 
-// copy-paste from vite-node/utils
-export function withTrailingSlash(path: string): string {
-  if (path[path.length - 1] !== '/')
-    return `${path}/`
-
-  return path
-}
-
 async function fixEsmExport<T extends Record<string | symbol, any>>(contentsPromise: Promise<T>): T {
   const contents = await contentsPromise
   return contents?.default?.__esModule ? contents.default : contents
@@ -72,6 +64,8 @@ export class VitestBrowserClientMocker {
         contents = await factory()
 
       else
+      // this works by, for each unique test, importing all its deps with a new suffix
+      // this loads new code every time! but otherwise, nested modules risk
         contents = await fixEsmExport(import(`${resolved}?test=${this.importUid}`))
 
       return buildFakeModule(contents)
@@ -139,11 +133,6 @@ export class VitestBrowserClientMocker {
     if (isAbsolute(resolved) && !resolved.startsWith('/@fs'))
       resolved = `/@fs${resolved}`
 
-    // // remove config.project.root
-    // const root = withTrailingSlash(this.config.root)
-    // if (resolved.startsWith(root))
-    //   resolved = resolved.slice(root.length - 1)
-
     return { resolved, importer }
   }
 
@@ -151,13 +140,6 @@ export class VitestBrowserClientMocker {
     // importers arrive as the full URL or just their local path, normalize with URL
     const u = new URL(importer, `${location.protocol}//${location.host}`)
     importer = u.pathname + u.search
-
-    // if (importer.startsWith('/@fs/'))
-    //   importer = importer.slice(4)
-
-    // const root = withTrailingSlash(this.config.root)
-    // if (importer.startsWith(root))
-    //   importer = importer.slice(root.length - 1)
 
     return importer
   }
