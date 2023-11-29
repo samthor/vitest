@@ -46,6 +46,7 @@ function prepareFakeModuleForSpy(module: any) {
   }
 }
 
+// this enables bound-like named imports with the import rewriting scheme
 export function buildFakeModule<T extends Record<string | symbol, any>>(contents: T): T {
   const out: Record<string | symbol, any> = { [Symbol.toStringTag]: 'Module', ...contents }
 
