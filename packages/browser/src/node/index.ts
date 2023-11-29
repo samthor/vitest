@@ -14,21 +14,6 @@ export default (project: WorkspaceProject, base = '/'): Plugin[] => {
 
   return [
     {
-      name: 'vitest:browser:dynamic-import-test',
-      enforce: 'pre',
-      renderDynamicImport({ targetModuleId }) {
-        const replaceImportMock = project.config.browser.replaceImportMock ?? false
-        console.warn('renderDynamicImport', { targetModuleId, replaceImportMock })
-        if (!replaceImportMock)
-          return
-
-        return {
-          left: '__vitest_mocker__.magic(',
-          right: `, ${JSON.stringify(targetModuleId)} import.meta.url)`,
-        }
-      },
-    },
-    {
       enforce: 'pre',
       name: 'vitest:browser',
       async config(viteConfig) {
@@ -123,7 +108,7 @@ export function after(project: WorkspaceProject): Plugin[] {
     {
       name: 'vitest:browser:wrap-imports',
       enforce: 'post',
-      transform(source, id) {
+      async transform(source, id) {
         const replaceImportMock = project.config.browser.replaceImportMock ?? false
         if (!replaceImportMock)
           return

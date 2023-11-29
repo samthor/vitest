@@ -1,4 +1,4 @@
-import { basename, dirname, isAbsolute, join, relative } from 'pathe'
+import { dirname, isAbsolute, join } from 'pathe'
 import type { ResolvedConfig } from '../../../vitest/src/types/config'
 import { buildFakeModule } from './fakeModule'
 
@@ -14,53 +14,65 @@ export function withTrailingSlash(path: string): string {
   return path
 }
 
+async function fixEsmExport<T extends Record<string | symbol, any>>(contentsPromise: Promise<T>): T {
+  const contents = await contentsPromise
+  return contents?.default?.__esModule ? contents.default : contents
+}
+
 export class VitestBrowserClientMocker {
   private mockLoaders = new Map<string, () => any>()
   private cachedImports = new Map<string, Promise<any>>()
   private importUid = 1
+  private mockActive = false
 
   constructor(
     private config: ResolvedConfig,
   ) {}
+
+  public startTest() {
+    this.mockActive = true
+  }
 
   /**
    * Browser tests don't run in parallel, and can't really with immutable modules. This clears all
    * mocks after each run.
    */
   public resetAfterFile() {
-    console.warn('$$$ RESET ALL MOCKS')
-    this.mockLoaders.clear()
-    this.cachedImports.clear()
+    this.mockActive = false
     ++this.importUid
+    this.mockLoaders.clear()
+    this.resetModules()
   }
 
   public resetModules() {
     this.cachedImports.clear()
   }
 
-  public async import(loader: (uid: any) => Promise<any>, id: string, importer: string): Promise<Record<string | symbol, any>> {
-    const { resolved } = this.resolvePath(id, importer)
+  public async import(resolved: string | undefined, id: string, importer: string) {
+    const out = this.resolvePath(id, importer)
+    const alternativeResolved = out.resolved
 
-    // FIXME:
-    //  - The issue is that subordinate mods already have a ref to whatever's returned here
-    // e.g.
-    // Test file imports A, comes here. Calls the import() loader, stores ref to B.
-    // B is from a previous test invocation. It has **already run**.
-    //
-    // Solutions - magic ID on imports, new every time. Awkward to manipulate Vite/Rollup import paths.
-    //
+    if (!this.mockActive)
+      return fixEsmExport(import(resolved ?? alternativeResolved))
+
+    if (resolved === undefined) {
+      // this is something unresolvable or was a variable/expression now in `id`
+      resolved = alternativeResolved
+    }
 
     const prev = this.cachedImports.get(resolved)
     if (prev !== undefined)
       return prev
 
     const task = (async () => {
-      const factory = this.mockLoaders.get(resolved)
+      const factory = this.mockLoaders.get(resolved) || this.mockLoaders.get(alternativeResolved)
+
       let contents
       if (factory)
-        contents = factory()
+        contents = await factory()
+
       else
-        contents = loader(this.importUid)
+        contents = await fixEsmExport(import(`${resolved}?test=${this.importUid}`))
 
       return buildFakeModule(contents)
     })()
@@ -77,17 +89,22 @@ export class VitestBrowserClientMocker {
   }
 
   public queueMock(id: string, importer: string, factory?: () => any) {
+    if (!this.mockActive)
+      throw new Error(`Cannot queueMock outside test`)
+
     factory = factory || (() => {
       throw new Error('TODO: default mock behavior and import from __mocks__')
     })
 
     const { resolved } = this.resolvePath(id, importer)
-    console.warn('! TODO: queueMock - this is run on file _load_, not run', { id, importer, resolved })
     this.mockLoaders.set(resolved, factory)
     this.cachedImports.delete(resolved)
   }
 
   public queueUnmock(id: string, importer: string) {
+    if (!this.mockActive)
+      throw new Error(`Cannot queueUnmock outside test`)
+
     const { resolved } = this.resolvePath(id, importer)
     this.mockLoaders.delete(resolved)
   }
@@ -119,10 +136,13 @@ export class VitestBrowserClientMocker {
 
     let resolved = join(dirname(importer), rawId)
 
-    // remove config.project.root
-    const root = withTrailingSlash(this.config.root)
-    if (resolved.startsWith(root))
-      resolved = resolved.slice(root.length - 1)
+    if (isAbsolute(resolved) && !resolved.startsWith('/@fs'))
+      resolved = `/@fs${resolved}`
+
+    // // remove config.project.root
+    // const root = withTrailingSlash(this.config.root)
+    // if (resolved.startsWith(root))
+    //   resolved = resolved.slice(root.length - 1)
 
     return { resolved, importer }
   }
@@ -132,12 +152,12 @@ export class VitestBrowserClientMocker {
     const u = new URL(importer, `${location.protocol}//${location.host}`)
     importer = u.pathname + u.search
 
-    if (importer.startsWith('/@fs/'))
-      importer = importer.slice(4)
+    // if (importer.startsWith('/@fs/'))
+    //   importer = importer.slice(4)
 
-    const root = withTrailingSlash(this.config.root)
-    if (importer.startsWith(root))
-      importer = importer.slice(root.length - 1)
+    // const root = withTrailingSlash(this.config.root)
+    // if (importer.startsWith(root))
+    //   importer = importer.slice(root.length - 1)
 
     return importer
   }

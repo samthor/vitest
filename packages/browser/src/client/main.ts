@@ -103,7 +103,6 @@ ws.addEventListener('open', async () => {
     safeRpc = createSafeRpc(client, getSafeTimers)
   }
   catch (err) {
-    throw err
     location.reload()
     return
   }
@@ -124,7 +123,7 @@ ws.addEventListener('open', async () => {
       name: 'browser',
     },
     // @ts-expect-error untyped global for internal use
-    moduleCache: globalThis.__vi_module_cache__,
+    moduleCache: globalThis.__vi_module_cache__ || new Map(),
     rpc: client.rpc,
     safeRpc,
     durations: {
@@ -184,7 +183,6 @@ async function runTests(paths: string[], config: ResolvedConfig) {
     preparedData = await prepareTestEnvironment(config)
   }
   catch (err) {
-    throw err
     location.reload()
     return
   }
@@ -213,11 +211,10 @@ async function runTests(paths: string[], config: ResolvedConfig) {
 
     for (const file of files) {
       try {
-        console.warn('! startTests GO', { file })
+        mocker!.startTest()
         await startTests([file], runner)
       }
       finally {
-        console.warn('! startTests STOP', { file })
         mocker!.resetAfterFile()
       }
     }

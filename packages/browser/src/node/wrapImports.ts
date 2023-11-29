@@ -1,6 +1,7 @@
 import MagicString from 'magic-string'
 import type { PluginContext } from 'rollup'
-import type { Expression, ImportExpression } from 'estree'
+import type { Expression } from 'estree'
+import { isAbsolute } from 'pathe'
 import type { Positioned } from './esmWalker'
 import { esmWalker } from './esmWalker'
 
@@ -14,7 +15,7 @@ export async function wrapImports(
   code: string,
   id: string,
   parse: PluginContext['parse'],
-  resolve: PluginContext['resolve'],
+  rollupResolve: PluginContext['resolve'],
 ) {
   const s = new MagicString(code)
 
@@ -27,37 +28,63 @@ export async function wrapImports(
     return
   }
 
-  // TODO: rewrite reexports (doesn't consider mocks)
+  const importsToResolve = new Set<string>()
 
-  // convert references to dynamic imports (already all dynamic from hoistMocks)
-
-  const nodes: Positioned<ImportExpression>[] = []
-
+  // find all literal imports so we can resolve them in an async step before re-running the sync walker
   esmWalker(ast, {
     onDynamicImport(node) {
-      // nodes.push(node)
       const expression = (node.source as Positioned<Expression>)
+      if (!(expression.type === 'Literal' && typeof expression.value === 'string'))
+        return
 
-      let renderInner = s.slice(expression.start, expression.end)
+      const { value } = expression
+      if (skipImports.some(i => value.match(i)))
+        return
 
-      if (expression.type === 'Literal' && typeof expression.value === 'string') {
-        const { value } = expression
-        if (skipImports.some(i => value.match(i)))
-          return
+      importsToResolve.add(value)
+    },
+    onIdentifier() {},
+    onImportMeta() {},
+  })
 
-        // TODO: can't async here
+  // resolve all imports in an async step
+  const resolveToId = async (importName: string) => {
+    const out = await rollupResolve(importName, id)
+    if (!out?.id)
+      return undefined
+    const resolved = out.id
 
-        // console.info('import special', { resolved: resolve(value, id), id, value })
+    if (!isAbsolute(resolved))
+      return undefined
 
-        // renderInner = JSON.stringify(resolve(value, id))
+    return `/@fs${resolved}`
+  }
+
+  const resolvedImports = Object.fromEntries(
+    await Promise.all([...importsToResolve].map(
+      async (importName): Promise<[string, string | undefined]> => {
+        return [importName, await resolveToId(importName)]
+      },
+    )),
+  )
+
+  // insert matched imports with the import rewrite
+  esmWalker(ast, {
+    onDynamicImport(node) {
+      const expression = (node.source as Positioned<Expression>)
+      if (!(expression.type === 'Literal' && typeof expression.value === 'string')) {
+        // can't resolveId, not a simple string: let the mocked do what it can
+        s.overwrite(node.start, expression.start, '__vitest_mocker__.import(undefined, ')
+        s.overwrite(node.end - 1, node.end, `, import.meta.url)`)
+        return
       }
-      else {
-      // TODO: maybe don't put side effects inside `import(...)` ?
-        renderInner = s.slice(expression.start, expression.end)
-      }
 
-      s.overwrite(node.start, expression.start, '__vitest_mocker__.import(() => import(')
-      s.overwrite(node.end - 1, node.end, `), ${renderInner}, import.meta.url)`)
+      const { value } = expression
+      const resolved = resolvedImports[value]
+      if (!resolved)
+        return
+
+      s.overwrite(node.start, node.end, `__vitest_mocker__.import(${JSON.stringify(resolved)}, ${JSON.stringify(value)}, import.meta.url)`)
     },
     onIdentifier() {},
     onImportMeta() {},
