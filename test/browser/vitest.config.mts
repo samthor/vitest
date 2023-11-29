@@ -15,7 +15,6 @@ export default defineConfig({
       headless: false,
       provider: process.env.PROVIDER || 'webdriverio',
       isolate: false,
-      // slowHijackESM: true,
       replaceImportMock: true,
     },
     alias: {

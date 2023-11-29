@@ -1,29 +1,15 @@
 import { afterEach, beforeEach, describe, expect, it, test, vi } from 'vitest'
-import value from '../src/fixed.js'
-
 import * as helperLib from '../src/helper.js'
 
-import '../src/side-effects.js'
+// side-effects only: registers CE
 import '../src/my-button.js'
+import '../src/side-effects.js'
 
 vi.mock('../src/helper.js', () => {
   return {
     helper: () => 'Mock value',
   }
 })
-
-const mock = true
-const expectText = mock ? 'Mock' : 'Real'
-
-if (mock) {
-  vi.doMock('../src/helper.js', () => {
-    return {
-      helper: () => 'Mock value doMock',
-    }
-  })
-}
-
-await import('../src/my-button.js')
 
 describe('Button with increment', async () => {
   function getInsideButton(): HTMLElement | null | undefined {
@@ -46,21 +32,15 @@ describe('Button with increment', async () => {
     vi.spyOn(helperLib, 'helper').mockReturnValue('mocked')
     expect(helperLib.helper()).toBe('mocked')
     vi.mocked(helperLib.helper).mockRestore()
-    console.info('RESTORED')
-    //    helperLib.helper()
   })
 
   test('direct mock', async () => {
     expect(helperLib.helper()).toBe('Mock value')
   })
 
-  it('should have value', () => {
-    expect(value).toBe(1)
-  })
-
-  it('should something with helper function', async () => {
+  it('should let us mock a value used within lit', async () => {
     const x = await import('../src/helper.js')
-    expect(x.helper()).toContain(`${expectText} value`)
+    expect(x.helper()).toContain(`Mock value`)
   })
 
   it('should increment the count on each click', () => {
@@ -85,6 +65,6 @@ describe('Button with increment', async () => {
 
   it('should have a helper value', () => {
     const el = document.body.querySelector('my-button')?.shadowRoot?.getElementById('helper')
-    expect(el?.textContent).toContain(`${expectText} value`)
+    expect(el?.textContent).toContain(`Mock value`)
   })
 })

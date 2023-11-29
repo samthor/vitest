@@ -1,11 +1,6 @@
 import { LitElement, css, html } from 'lit'
 import { customElement, property } from 'lit/decorators.js'
-import { vi } from 'vitest'
 import { helper } from './helper.js'
-
-vi.mock('butt', () => {
-
-})
 
 /**
  * An example button.

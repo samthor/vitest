@@ -50,8 +50,8 @@ const regexpAssignedHoisted = /=[ \t]*(\bawait|)[ \t]*\b(vi|vitest)\s*\.\s*hoist
 const hashbangRE = /^#!.*\n/
 
 export function hoistMocks(code: string, id: string, parse: PluginContext['parse'], always?: boolean) {
-  // if we're using a custom identifier then apply it to all imports (this is browser
-  // mode) as this plugin is used to wire up mocks created even outside this file
+  // mocks might be nested; let the caller decide whether to always enable this helper
+  // as it will convert all import declarations to dytnamic ones
   if (!always) {
     const hasMocks = regexpHoistable.test(code) || regexpAssignedHoisted.test(code)
 
@@ -70,14 +70,6 @@ export function hoistMocks(code: string, id: string, parse: PluginContext['parse
     return
   }
 
-  // custom importers are told how to load the actual module (this gets properly
-  // resolved later) as well as its id / the current href to do mock matching
-  // (imports may happen via resolved IDs, but users expect to match imports as code)
-  // const buildImport = importIdentifier
-  //   ? (source: string) => `await ${importIdentifier}(() => import(${JSON.stringify(source)}), ${JSON.stringify(source)}, import.meta.url)`
-  //   : (source: string) => `await import(${JSON.stringify(source)})`
-  const buildImport = (source: string) => `await import(${JSON.stringify(source)})`
-
   const hoistIndex = code.match(hashbangRE)?.[0].length ?? 0
 
   let hoistedCode = ''
@@ -92,7 +84,7 @@ export function hoistMocks(code: string, id: string, parse: PluginContext['parse
 
     let code = ''
     if (namespace)
-      code += `const ${namespace.local.name} = ${buildImport(source)}\n`
+      code += `const ${namespace.local.name} = await import('${source}')\n`
 
     // if we don't hijack ESM and process this file, then we definetly have mocks,
     // so we need to transform imports into dynamic ones, so "vi.mock" can be executed before
@@ -102,10 +94,10 @@ export function hoistMocks(code: string, id: string, parse: PluginContext['parse
       if (namespace)
         code += `const ${specifiers} = ${namespace.local.name}\n`
       else
-        code += `const ${specifiers} = ${buildImport(source)}\n`
+        code += `const ${specifiers} = await import('${source}')\n`
     }
     else if (!namespace) {
-      code += `${buildImport(source)}\n`
+      code += `await import('${source}')\n`
     }
     return code
   }

@@ -5,7 +5,6 @@ vi.hoisted(() => {
   vi.resetModules()
 })
 
-// // TODO: this does not work IF `mocked.test.ts` exists
 vi.mock('../src/actions', () => {
   return {
     plus: (a, b) => a * b,

@@ -53,13 +53,8 @@ export function injectVitestModule(code: string, id: string, parse: PluginContex
 
     const importId = `__vi_esm_${uid++}__`
     const hasSpecifiers = node.specifiers.length > 0
-    // const code = hasSpecifiers
-    //   ? `const ${importId} = await __vitest_mocker__.import(${JSON.stringify(source)});`
-    //   : `await __vitest_mocker__.import(${JSON.stringify(source)});`
-
-    // TODO: does hoistMocks run after this??
     const code = hasSpecifiers
-      ? `/* lol import key */ import { ${viInjectedKey} as ${importId} } from '${source}'\n`
+      ? `import { ${viInjectedKey} as ${importId} } from '${source}'\n`
       : `import '${source}'\n`
     return {
       code,
