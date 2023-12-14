@@ -14,7 +14,7 @@ export default defineConfig({
       name: process.env.BROWSER || 'chrome',
       headless: false,
       provider: process.env.PROVIDER || 'webdriverio',
-      isolate: false,
+      isolate: true,
       proxyHijackESM: true,
     },
     alias: {

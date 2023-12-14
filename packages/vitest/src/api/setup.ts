@@ -66,6 +66,9 @@ export function setup(vitestOrWorkspace: Vitest | WorkspaceProject, server?: Vit
         sendLog(log) {
           return ctx.report('onUserConsoleLog', log)
         },
+        resolveId(id, importer) {
+          return vitestOrWorkspace.vitenode.resolveId(id, importer)
+        },
         resolveSnapshotPath(testPath) {
           return ctx.snapshot.resolvePath(testPath)
         },

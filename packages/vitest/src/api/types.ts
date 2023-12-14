@@ -1,5 +1,6 @@
 import type { TransformResult } from 'vite'
 import type { CancelReason } from '@vitest/runner'
+import type { ViteNodeResolveId } from 'vite-node'
 import type { AfterSuiteRunMeta, File, ModuleGraphData, ProvidedContext, Reporter, ResolvedConfig, SnapshotResult, TaskResultPack, UserConsoleLog } from '../types'
 
 export interface TransformResultWithSource extends TransformResult {
@@ -18,6 +19,7 @@ export interface WebSocketHandlers {
   getFiles(): File[]
   getPaths(): string[]
   getConfig(): ResolvedConfig
+  resolveId(id: string, importer: string): Promise<ViteNodeResolveId | null>
   resolveSnapshotPath(testPath: string): string
   resolveSnapshotRawPath(testPath: string, rawPath: string): string
   getModuleGraph(id: string): Promise<ModuleGraphData>
